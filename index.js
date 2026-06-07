@@ -512,7 +512,7 @@ status:"available"
 })
 .populate(
 "ownerId",
-"name username city avatar phone whatsapp"
+"_id name username city avatar phone whatsapp"
 )
 .sort({createdAt:-1});
 
@@ -544,8 +544,8 @@ try{
 const cat = await Cat.findById(req.params.id)
 .populate(
 "ownerId",
-"name username city avatar phone whatsapp bio"
-);
+"_id name username city avatar phone whatsapp bio"
+)
 
 if(!cat){
 
@@ -802,62 +802,6 @@ message:error.message
 
 
 
-/* =========================
-REPORT SCHEMA
-========================= */
-
-const reportSchema = new mongoose.Schema({
-
-reporterId:{
-type:mongoose.Schema.Types.ObjectId,
-ref:"User",
-required:true
-},
-
-targetType:{
-type:String,
-required:true
-},
-
-targetId:{
-type:String,
-required:true
-},
-
-catName:{
-type:String,
-default:""
-},
-
-catImage:{
-type:String,
-default:""
-},
-
-ownerId:{
-type:mongoose.Schema.Types.ObjectId,
-ref:"User"
-},
-
-ownerName:{
-type:String,
-default:""
-},
-
-reason:{
-type:String,
-required:true
-},
-
-status:{
-type:String,
-default:"pending"
-}
-
-},{
-timestamps:true
-});
-
 
 /* =========================
 REPORT SCHEMA
@@ -914,6 +858,10 @@ default:"pending"
 },{
 timestamps:true
 });
+const Report = mongoose.model(
+"Report",
+reportSchema
+);
 
 /* =========================
 CREATE REPORT
