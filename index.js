@@ -611,6 +611,372 @@ message:error.message
 }
 
 });
+/* =========================
+UPDATE PROFILE
+========================= */
+
+app.put("/api/auth/profile", protect, async (req,res)=>{
+
+try{
+
+const user = await User.findByIdAndUpdate(
+
+req.user._id,
+
+{
+name:req.body.name,
+avatar:req.body.avatar,
+phone:req.body.phone,
+whatsapp:req.body.whatsapp,
+bio:req.body.bio,
+city:req.body.city
+},
+
+{
+new:true
+}
+
+).select("-password");
+
+res.json({
+success:true,
+user
+});
+
+}catch(error){
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+});
+
+/* =========================
+UPDATE CAT
+========================= */
+
+app.put("/api/cats/:id", protect, async (req,res)=>{
+
+try{
+
+const cat = await Cat.findById(req.params.id);
+
+if(!cat){
+
+return res.status(404).json({
+success:false,
+message:"Cat not found"
+});
+
+}
+
+if(cat.ownerId.toString() !== req.user._id.toString()){
+
+return res.status(403).json({
+success:false,
+message:"Unauthorized"
+});
+
+}
+
+const updatedCat = await Cat.findByIdAndUpdate(
+req.params.id,
+req.body,
+{
+new:true
+}
+);
+
+res.json({
+success:true,
+cat:updatedCat
+});
+
+}catch(error){
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+});
+
+/* =========================
+REPORT SCHEMA
+========================= */
+
+const reportSchema = new mongoose.Schema({
+
+reporterId:{
+type:mongoose.Schema.Types.ObjectId,
+ref:"User",
+required:true
+},
+
+targetType:{
+type:String,
+required:true
+},
+
+targetId:{
+type:String,
+required:true
+},
+
+reason:{
+type:String,
+required:true
+},
+
+status:{
+type:String,
+default:"pending"
+}
+
+},{
+timestamps:true
+});
+
+const Report = mongoose.model("Report",reportSchema);
+
+/* =========================
+CREATE REPORT
+========================= */
+
+app.post("/api/reports", protect, async (req,res)=>{
+
+try{
+
+const report = await Report.create({
+
+reporterId:req.user._id,
+
+targetType:req.body.targetType,
+
+targetId:req.body.targetId,
+
+reason:req.body.reason
+
+});
+
+res.status(201).json({
+success:true,
+report
+});
+
+}catch(error){
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+});
+
+/* =========================
+GET ALL REPORTS
+========================= */
+
+app.get("/api/reports", async (req,res)=>{
+
+try{
+
+const reports = await Report.find()
+.populate(
+"reporterId",
+"name username email"
+)
+.sort({createdAt:-1});
+
+res.json({
+success:true,
+count:reports.length,
+reports
+});
+
+}catch(error){
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+});
+
+/* =========================
+PUBLIC USER PROFILE
+========================= */
+
+app.get("/api/users/:id", async (req,res)=>{
+
+try{
+
+const user = await User.findById(req.params.id)
+.select("-password");
+
+if(!user){
+
+return res.status(404).json({
+success:false,
+message:"User not found"
+});
+
+}
+
+res.json({
+success:true,
+user
+});
+
+}catch(error){
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+});
+
+/* =========================
+SEARCH CATS
+========================= */
+
+app.get("/api/search", async (req,res)=>{
+
+try{
+
+const q = req.query.q || "";
+
+const cats = await Cat.find({
+
+status:"available",
+
+$or:[
+
+{name:{$regex:q,$options:"i"}},
+
+{breed:{$regex:q,$options:"i"}},
+
+{city:{$regex:q,$options:"i"}}
+
+]
+
+});
+
+res.json({
+success:true,
+count:cats.length,
+cats
+});
+
+}catch(error){
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+});
+
+/* =========================
+FILTER CATS
+========================= */
+
+app.get("/api/filter", async (req,res)=>{
+
+try{
+
+const filter = {};
+
+if(req.query.city){
+filter.city = req.query.city;
+}
+
+if(req.query.gender){
+filter.gender = req.query.gender;
+}
+
+if(req.query.breed){
+filter.breed = req.query.breed;
+}
+
+if(req.query.status){
+filter.status = req.query.status;
+}
+
+const cats = await Cat.find(filter);
+
+res.json({
+success:true,
+count:cats.length,
+cats
+});
+
+}catch(error){
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+});
+
+/* =========================
+SITE STATS
+========================= */
+
+app.get("/api/stats", async (req,res)=>{
+
+try{
+
+const totalUsers = await User.countDocuments();
+
+const totalCats = await Cat.countDocuments();
+
+const availableCats = await Cat.countDocuments({
+status:"available"
+});
+
+const adoptedCats = await Cat.countDocuments({
+status:"adopted"
+});
+
+const totalReports = await Report.countDocuments();
+
+res.json({
+success:true,
+totalUsers,
+totalCats,
+availableCats,
+adoptedCats,
+totalReports
+});
+
+}catch(error){
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+});
 
 const PORT = process.env.PORT || 5000;
 
