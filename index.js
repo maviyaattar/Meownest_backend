@@ -977,6 +977,395 @@ message:error.message
 }
 
 });
+/* =========================
+ADMIN MIDDLEWARE
+========================= */
+
+const adminOnly = (req,res,next)=>{
+
+if(req.user.role !== "admin"){
+
+return res.status(403).json({
+success:false,
+message:"Admin only"
+});
+
+}
+
+next();
+
+};
+
+/* =========================
+FAVORITE SCHEMA
+========================= */
+
+const favoriteSchema = new mongoose.Schema({
+
+userId:{
+type:mongoose.Schema.Types.ObjectId,
+ref:"User",
+required:true
+},
+
+catId:{
+type:mongoose.Schema.Types.ObjectId,
+ref:"Cat",
+required:true
+}
+
+},{
+timestamps:true
+});
+
+const Favorite = mongoose.model(
+"Favorite",
+favoriteSchema
+);
+
+/* =========================
+ADD FAVORITE
+========================= */
+
+app.post(
+"/api/favorites/:catId",
+protect,
+async (req,res)=>{
+
+try{
+
+const exists = await Favorite.findOne({
+
+userId:req.user._id,
+
+catId:req.params.catId
+
+});
+
+if(exists){
+
+return res.status(400).json({
+success:false,
+message:"Already favorited"
+});
+
+}
+
+const favorite = await Favorite.create({
+
+userId:req.user._id,
+
+catId:req.params.catId
+
+});
+
+res.json({
+success:true,
+favorite
+});
+
+}catch(error){
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+}
+);
+
+/* =========================
+GET FAVORITES
+========================= */
+
+app.get(
+"/api/favorites",
+protect,
+async (req,res)=>{
+
+try{
+
+const favorites = await Favorite.find({
+
+userId:req.user._id
+
+}).populate("catId");
+
+res.json({
+success:true,
+count:favorites.length,
+favorites
+});
+
+}catch(error){
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+}
+);
+
+/* =========================
+REMOVE FAVORITE
+========================= */
+
+app.delete(
+"/api/favorites/:catId",
+protect,
+async (req,res)=>{
+
+try{
+
+await Favorite.findOneAndDelete({
+
+userId:req.user._id,
+
+catId:req.params.catId
+
+});
+
+res.json({
+success:true,
+message:"Favorite removed"
+});
+
+}catch(error){
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+}
+);
+
+/* =========================
+GET ALL USERS
+========================= */
+
+app.get(
+"/api/admin/users",
+protect,
+adminOnly,
+async (req,res)=>{
+
+try{
+
+const users = await User.find()
+.select("-password");
+
+res.json({
+success:true,
+count:users.length,
+users
+});
+
+}catch(error){
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+}
+);
+
+/* =========================
+BAN USER
+========================= */
+
+app.put(
+"/api/admin/ban/:id",
+protect,
+adminOnly,
+async (req,res)=>{
+
+try{
+
+await User.findByIdAndUpdate(
+req.params.id,
+{
+status:"banned"
+}
+);
+
+res.json({
+success:true,
+message:"User banned"
+});
+
+}catch(error){
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+}
+);
+
+/* =========================
+UNBAN USER
+========================= */
+
+app.put(
+"/api/admin/unban/:id",
+protect,
+adminOnly,
+async (req,res)=>{
+
+try{
+
+await User.findByIdAndUpdate(
+req.params.id,
+{
+status:"active"
+}
+);
+
+res.json({
+success:true,
+message:"User unbanned"
+});
+
+}catch(error){
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+}
+);
+
+/* =========================
+VERIFY USER
+========================= */
+
+app.put(
+"/api/admin/verify-user/:id",
+protect,
+adminOnly,
+async (req,res)=>{
+
+try{
+
+await User.findByIdAndUpdate(
+req.params.id,
+{
+verified:true
+}
+);
+
+res.json({
+success:true,
+message:"User verified"
+});
+
+}catch(error){
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+}
+);
+
+/* =========================
+DELETE ANY CAT
+========================= */
+
+app.delete(
+"/api/admin/cats/:id",
+protect,
+adminOnly,
+async (req,res)=>{
+
+try{
+
+await Cat.findByIdAndDelete(
+req.params.id
+);
+
+res.json({
+success:true,
+message:"Cat deleted by admin"
+});
+
+}catch(error){
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+}
+);
+
+/* =========================
+ADMIN DASHBOARD
+========================= */
+
+app.get(
+"/api/admin/dashboard",
+protect,
+adminOnly,
+async (req,res)=>{
+
+try{
+
+const totalUsers =
+await User.countDocuments();
+
+const totalCats =
+await Cat.countDocuments();
+
+const totalReports =
+await Report.countDocuments();
+
+const adoptedCats =
+await Cat.countDocuments({
+status:"adopted"
+});
+
+res.json({
+success:true,
+totalUsers,
+totalCats,
+totalReports,
+adoptedCats
+});
+
+}catch(error){
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+}
+);
 
 const PORT = process.env.PORT || 5000;
 
