@@ -800,6 +800,8 @@ message:error.message
 
 });
 
+
+
 /* =========================
 REPORT SCHEMA
 ========================= */
@@ -822,6 +824,26 @@ type:String,
 required:true
 },
 
+catName:{
+type:String,
+default:""
+},
+
+catImage:{
+type:String,
+default:""
+},
+
+ownerId:{
+type:mongoose.Schema.Types.ObjectId,
+ref:"User"
+},
+
+ownerName:{
+type:String,
+default:""
+},
+
 reason:{
 type:String,
 required:true
@@ -836,7 +858,62 @@ default:"pending"
 timestamps:true
 });
 
-const Report = mongoose.model("Report",reportSchema);
+
+/* =========================
+REPORT SCHEMA
+========================= */
+
+const reportSchema = new mongoose.Schema({
+
+reporterId:{
+type:mongoose.Schema.Types.ObjectId,
+ref:"User",
+required:true
+},
+
+targetType:{
+type:String,
+required:true
+},
+
+targetId:{
+type:String,
+required:true
+},
+
+catName:{
+type:String,
+default:""
+},
+
+catImage:{
+type:String,
+default:""
+},
+
+ownerId:{
+type:mongoose.Schema.Types.ObjectId,
+ref:"User"
+},
+
+ownerName:{
+type:String,
+default:""
+},
+
+reason:{
+type:String,
+required:true
+},
+
+status:{
+type:String,
+default:"pending"
+}
+
+},{
+timestamps:true
+});
 
 /* =========================
 CREATE REPORT
@@ -846,6 +923,34 @@ app.post("/api/reports", protect, async (req,res)=>{
 
 try{
 
+let catName = "";
+let catImage = "";
+let ownerId = null;
+let ownerName = "";
+
+if(req.body.targetType === "cat"){
+
+const cat = await Cat.findById(
+req.body.targetId
+).populate("ownerId");
+
+if(cat){
+
+catName = cat.name;
+
+catImage =
+cat.images?.[0] || "";
+
+ownerId =
+cat.ownerId?._id || null;
+
+ownerName =
+cat.ownerId?.name || "";
+
+}
+
+}
+
 const report = await Report.create({
 
 reporterId:req.user._id,
@@ -853,6 +958,14 @@ reporterId:req.user._id,
 targetType:req.body.targetType,
 
 targetId:req.body.targetId,
+
+catName,
+
+catImage,
+
+ownerId,
+
+ownerName,
 
 reason:req.body.reason
 
