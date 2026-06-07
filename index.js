@@ -1,5 +1,6 @@
 require("dotenv").config();
 
+const cloudinary = require("cloudinary").v2;
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -16,6 +17,44 @@ mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected"))
   .catch((err) => console.log("❌ MongoDB Error:", err.message));
+
+/* =========================
+CLOUDINARY CONFIG
+========================= */
+
+const cloudinary = require("cloudinary").v2;
+
+cloudinary.config({
+cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+api_key: process.env.CLOUDINARY_API_KEY,
+api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+/* =========================
+CLOUDINARY TEST
+========================= */
+
+app.get("/api/cloudinary-test", async (req, res) => {
+
+try {
+
+const result = await cloudinary.api.ping();
+
+res.json({
+  success: true,
+  result
+});
+
+} catch (error) {
+
+res.status(500).json({
+  success: false,
+  message: error.message
+});
+
+}
+
+});
 
 /* =========================
    USER SCHEMA
