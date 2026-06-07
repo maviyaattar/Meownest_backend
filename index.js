@@ -274,6 +274,344 @@ app.get("/api/auth/profile", protect, async (req, res) => {
   });
 });
 
+/* =========================
+CAT SCHEMA
+========================= */
+
+const catSchema = new mongoose.Schema(
+{
+ownerId:{
+type:mongoose.Schema.Types.ObjectId,
+ref:"User",
+required:true
+},
+
+name:{
+    type:String,
+    required:true
+},
+
+breed:{
+    type:String,
+    default:""
+},
+
+age:{
+    type:Number,
+    default:0
+},
+
+gender:{
+    type:String,
+    default:""
+},
+
+color:{
+    type:String,
+    default:""
+},
+
+description:{
+    type:String,
+    default:""
+},
+
+story:{
+    type:String,
+    default:""
+},
+
+vaccinated:{
+    type:Boolean,
+    default:false
+},
+
+friendlyWithKids:{
+    type:Boolean,
+    default:false
+},
+
+friendlyWithPets:{
+    type:Boolean,
+    default:false
+},
+
+indoorOutdoor:{
+    type:String,
+    default:""
+},
+
+images:{
+    type:[String],
+    default:[]
+},
+
+city:{
+    type:String,
+    default:""
+},
+
+status:{
+    type:String,
+    default:"available"
+},
+
+views:{
+    type:Number,
+    default:0
+}
+
+},
+{
+timestamps:true
+}
+);
+
+const Cat = mongoose.model("Cat",catSchema);
+
+/* =========================
+ADD CAT
+========================= */
+
+app.post("/api/cats", protect, async (req,res)=>{
+
+try{
+
+const cat = await Cat.create({
+ownerId:req.user._id,
+...req.body
+});
+
+await User.findByIdAndUpdate(
+req.user._id,
+{
+$inc:{catsPosted:1}
+}
+);
+
+res.status(201).json({
+success:true,
+cat
+});
+
+}catch(error){
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+});
+
+/* =========================
+GET ALL CATS
+========================= */
+
+app.get("/api/cats", async (req,res)=>{
+
+try{
+
+const cats = await Cat.find({
+status:"available"
+})
+.populate(
+"ownerId",
+"name username city avatar phone whatsapp"
+)
+.sort({createdAt:-1});
+
+res.json({
+success:true,
+count:cats.length,
+cats
+});
+
+}catch(error){
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+});
+
+/* =========================
+GET SINGLE CAT
+========================= */
+
+app.get("/api/cats/:id", async (req,res)=>{
+
+try{
+
+const cat = await Cat.findById(req.params.id)
+.populate(
+"ownerId",
+"name username city avatar phone whatsapp bio"
+);
+
+if(!cat){
+
+return res.status(404).json({
+success:false,
+message:"Cat not found"
+});
+
+}
+
+cat.views += 1;
+
+await cat.save();
+
+res.json({
+success:true,
+cat
+});
+
+}catch(error){
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+});
+
+/* =========================
+MY CATS
+========================= */
+
+app.get("/api/my-cats", protect, async (req,res)=>{
+
+try{
+
+const cats = await Cat.find({
+ownerId:req.user._id
+});
+
+res.json({
+success:true,
+count:cats.length,
+cats
+});
+
+}catch(error){
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+});
+
+/* =========================
+DELETE CAT
+========================= */
+
+app.delete("/api/cats/:id", protect, async (req,res)=>{
+
+try{
+
+const cat = await Cat.findById(req.params.id);
+
+if(!cat){
+
+return res.status(404).json({
+success:false,
+message:"Cat not found"
+});
+
+}
+
+if(cat.ownerId.toString() !== req.user._id.toString()){
+
+return res.status(403).json({
+success:false,
+message:"Unauthorized"
+});
+
+}
+
+await cat.deleteOne();
+
+res.json({
+success:true,
+message:"Cat deleted"
+});
+
+}catch(error){
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+});
+
+/* =========================
+MARK AS ADOPTED
+========================= */
+
+app.put("/api/cats/:id/adopted", protect, async (req,res)=>{
+
+try{
+
+const cat = await Cat.findById(req.params.id);
+
+if(!cat){
+
+return res.status(404).json({
+success:false,
+message:"Cat not found"
+});
+
+}
+
+if(cat.ownerId.toString() !== req.user._id.toString()){
+
+return res.status(403).json({
+success:false,
+message:"Unauthorized"
+});
+
+}
+
+cat.status = "adopted";
+
+await cat.save();
+
+await User.findByIdAndUpdate(
+req.user._id,
+{
+$inc:{successfulAdoptions:1}
+}
+);
+
+res.json({
+success:true,
+message:"Cat marked as adopted"
+});
+
+}catch(error){
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+});
+
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
