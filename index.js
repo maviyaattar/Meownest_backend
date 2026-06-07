@@ -1,6 +1,7 @@
 require("dotenv").config();
 
 const cloudinary = require("cloudinary").v2;
+const multer = require("multer");
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -182,7 +183,62 @@ const protect = async (req, res, next) => {
     });
   }
 };
+/* =========================
+MULTER CONFIG
+========================= */
 
+const upload = multer({
+storage: multer.memoryStorage()
+});
+
+/* =========================
+UPLOAD IMAGE TO CLOUDINARY
+========================= */
+
+app.post(
+"/api/upload",
+protect,
+upload.single("image"),
+async (req,res)=>{
+
+try{
+
+if(!req.file){
+
+return res.status(400).json({
+success:false,
+message:"No image selected"
+});
+
+}
+
+const base64 =
+`data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
+
+const result =
+await cloudinary.uploader.upload(
+base64,
+{
+folder:"meownest"
+}
+);
+
+res.json({
+success:true,
+imageUrl:result.secure_url
+});
+
+}catch(error){
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+}
+);
 /* =========================
    HOME
 ========================= */
