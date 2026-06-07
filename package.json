@@ -1,0 +1,27 @@
+{
+  "name": "meownest-backend",
+  "version": "1.0.0",
+  "description": "MeowNest Cat Adoption Platform Backend",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "meownest",
+    "cats",
+    "adoption",
+    "nodejs",
+    "mongodb",
+    "express"
+  ],
+  "author": "Maviya Attar",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.18.0"
+  }
+}
