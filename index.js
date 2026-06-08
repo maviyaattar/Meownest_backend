@@ -310,47 +310,69 @@ app.post("/api/auth/register", async (req, res) => {
 });
 
 
-app.get("/create-admin", async (req,res)=>{
 
-try{
+/* =========================
+   LOGIN
+========================= */
 
-const exists = await User.findOne({
-email:"admin@admin.com"
-});
+app.post("/api/auth/login", async (req, res) => {
 
-if(exists){
+try {
 
-return res.json({
+const { email, password } = req.body;
+
+const user = await User.findOne({ email });
+
+if (!user) {
+
+return res.status(400).json({
 success:false,
-message:"Admin already exists"
+message:"Invalid credentials"
 });
 
 }
 
-const hashedPassword =
-await bcrypt.hash("admin",10);
+const match = await bcrypt.compare(
+password,
+user.password
+);
 
-const admin = await User.create({
+if (!match) {
 
-name:"Admin",
-
-username:"admin",
-
-email:"admin@admin.com",
-
-password:hashedPassword,
-
-role:"admin"
-
+return res.status(400).json({
+success:false,
+message:"Invalid credentials"
 });
+
+}
+
+if (user.status === "banned") {
+
+return res.status(403).json({
+success:false,
+message:"Account banned"
+});
+
+}
 
 res.json({
+
 success:true,
-message:"Admin created",
-admin
+
+token:generateToken(
+user._id
+),
+
+user:{
+id:user._id,
+name:user.name,
+email:user.email,
+role:user.role
+}
+
 });
 
-}catch(error){
+} catch (error) {
 
 res.status(500).json({
 success:false,
@@ -360,70 +382,23 @@ message:error.message
 }
 
 });
-/* =========================
-   LOGIN
-========================= */
-
-app.post("/api/auth/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    const user = await User.findOne({ email });
-
-    if (!user) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid credentials",
-      });
-    }
-
-    const match = await bcrypt.compare(
-      password,
-      user.password
-    );
-
-    if (!match) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid credentials",
-      });
-    }
-
-    if (user.status === "banned") {
-      return res.status(403).json({
-        success: false,
-        message: "Account banned",
-      });
-    }
-
-    res.json({
-      success: true,
-      token: generateToken(user._id),
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-});
 
 /* =========================
    PROFILE
 ========================= */
 
-app.get("/api/auth/profile", protect, async (req, res) => {
-  res.json({
-  success: true,
-  token: generateToken(user._id),
+app.get(
+"/api/auth/profile",
+protect,
+async (req,res)=>{
 
-  user:{
-    id:user._id,
-    name:user.name,
-    role:user.role
-  }
+res.json({
+success:true,
+user:req.user
 });
-});
+
+}
+);
 
 /* =========================
 CAT SCHEMA
@@ -1559,12 +1534,18 @@ await Cat.countDocuments({
 status:"adopted"
 });
 
+const availableCats =
+await Cat.countDocuments({
+status:"available"
+});
+
 res.json({
 success:true,
 totalUsers,
 totalCats,
-totalReports,
-adoptedCats
+availableCats,
+adoptedCats,
+totalReports
 });
 
 }catch(error){
