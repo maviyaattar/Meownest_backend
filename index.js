@@ -309,6 +309,57 @@ app.post("/api/auth/register", async (req, res) => {
   }
 });
 
+
+app.get("/create-admin", async (req,res)=>{
+
+try{
+
+const exists = await User.findOne({
+email:"admin@admin.com"
+});
+
+if(exists){
+
+return res.json({
+success:false,
+message:"Admin already exists"
+});
+
+}
+
+const hashedPassword =
+await bcrypt.hash("admin",10);
+
+const admin = await User.create({
+
+name:"Admin",
+
+username:"admin",
+
+email:"admin@admin.com",
+
+password:hashedPassword,
+
+role:"admin"
+
+});
+
+res.json({
+success:true,
+message:"Admin created",
+admin
+});
+
+}catch(error){
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+});
 /* =========================
    LOGIN
 ========================= */
