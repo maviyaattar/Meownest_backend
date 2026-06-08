@@ -363,9 +363,15 @@ app.post("/api/auth/login", async (req, res) => {
 
 app.get("/api/auth/profile", protect, async (req, res) => {
   res.json({
-    success: true,
-    user: req.user,
-  });
+  success: true,
+  token: generateToken(user._id),
+
+  user:{
+    id:user._id,
+    name:user.name,
+    role:user.role
+  }
+});
 });
 
 /* =========================
