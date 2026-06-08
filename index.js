@@ -23,11 +23,43 @@ mongoose
   .catch((err) => console.log("❌ MongoDB Error:", err.message));
 
 const transporter = nodemailer.createTransport({
-service:"gmail",
+
+host:"smtp.gmail.com",
+
+port:587,
+
+secure:false,
+
 auth:{
 user:process.env.EMAIL_USER,
 pass:process.env.EMAIL_PASS
+},
+
+logger:true,
+debug:true
+
+});
+
+console.log("EMAIL_USER =", process.env.EMAIL_USER);
+console.log(
+"EMAIL_PASS EXISTS =",
+process.env.EMAIL_PASS ? "YES" : "NO"
+);
+
+transporter.verify(function(error, success){
+
+if(error){
+
+console.log("SMTP ERROR:");
+console.log(error);
+
+}else{
+
+console.log("SMTP READY");
+console.log(success);
+
 }
+
 });
 
 
