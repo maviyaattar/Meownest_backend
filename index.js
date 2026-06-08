@@ -155,33 +155,59 @@ const generateToken = (id) => {
    AUTH MIDDLEWARE
 ========================= */
 
-const protect = async (req, res, next) => {
-  try {
-    const authHeader = req.headers.authorization;
+const protect = async (req,res,next)=>{
 
-    if (!authHeader) {
-      return res.status(401).json({
-        success: false,
-        message: "No token provided",
-      });
-    }
+try{
 
-    const token = authHeader.split(" ")[1];
+const authHeader =
+req.headers.authorization;
 
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET
-    );
+if(!authHeader){
 
-    req.user = await User.findById(decoded.id).select("-password");
+return res.status(401).json({
+success:false,
+message:"No token provided"
+});
 
-    next();
-  } catch (error) {
-    return res.status(401).json({
-      success: false,
-      message: "Invalid token",
-    });
-  }
+}
+
+const token =
+authHeader.split(" ")[1];
+
+const decoded =
+jwt.verify(
+token,
+process.env.JWT_SECRET
+);
+
+req.user =
+await User.findById(
+decoded.id
+).select("-password");
+
+if(
+!req.user ||
+req.user.status === "banned"
+){
+
+return res.status(403).json({
+success:false,
+message:"ACCOUNT_BANNED"
+});
+
+}
+
+next();
+
+}catch(error){
+
+return res.status(401).json({
+success:false,
+message:"Invalid token"
+});
+
+}
+
 };
 /* =========================
 MULTER CONFIG
@@ -310,20 +336,21 @@ app.post("/api/auth/register", async (req, res) => {
 });
 
 
-
 /* =========================
-   LOGIN
+LOGIN
 ========================= */
 
-app.post("/api/auth/login", async (req, res) => {
+app.post("/api/auth/login", async (req,res)=>{
 
-try {
+try{
 
-const { email, password } = req.body;
+const { email,password } = req.body;
 
-const user = await User.findOne({ email });
+const user = await User.findOne({
+email
+});
 
-if (!user) {
+if(!user){
 
 return res.status(400).json({
 success:false,
@@ -332,25 +359,26 @@ message:"Invalid credentials"
 
 }
 
-const match = await bcrypt.compare(
+if(user.status === "banned"){
+
+return res.status(403).json({
+success:false,
+message:"Your account has been banned by admin."
+});
+
+}
+
+const match =
+await bcrypt.compare(
 password,
 user.password
 );
 
-if (!match) {
+if(!match){
 
 return res.status(400).json({
 success:false,
 message:"Invalid credentials"
-});
-
-}
-
-if (user.status === "banned") {
-
-return res.status(403).json({
-success:false,
-message:"Account banned"
 });
 
 }
@@ -372,7 +400,7 @@ role:user.role
 
 });
 
-} catch (error) {
+}catch(error){
 
 res.status(500).json({
 success:false,
@@ -384,7 +412,7 @@ message:error.message
 });
 
 /* =========================
-   PROFILE
+PROFILE
 ========================= */
 
 app.get(
@@ -397,8 +425,7 @@ success:true,
 user:req.user
 });
 
-}
-);
+});
 
 /* =========================
 CAT SCHEMA
@@ -544,14 +571,21 @@ status:"available"
 })
 .populate(
 "ownerId",
-"_id name username city avatar phone whatsapp"
+"_id name username city avatar phone whatsapp status"
 )
 .sort({createdAt:-1});
 
+const filteredCats =
+cats.filter(
+cat =>
+cat.ownerId &&
+cat.ownerId.status !== "banned"
+);
+
 res.json({
 success:true,
-count:cats.length,
-cats
+count:filteredCats.length,
+cats:filteredCats
 });
 
 }catch(error){
@@ -576,10 +610,22 @@ try{
 const cat = await Cat.findById(req.params.id)
 .populate(
 "ownerId",
-"_id name username city avatar phone whatsapp bio"
-)
+"_id name username city avatar phone whatsapp bio status"
+);
 
 if(!cat){
+
+return res.status(404).json({
+success:false,
+message:"Cat not found"
+});
+
+}
+
+if(
+cat.ownerId &&
+cat.ownerId.status === "banned"
+){
 
 return res.status(404).json({
 success:false,
@@ -1007,10 +1053,15 @@ app.get("/api/users/:id", async (req,res)=>{
 
 try{
 
-const user = await User.findById(req.params.id)
-.select("-password");
+const user =
+await User.findById(
+req.params.id
+).select("-password");
 
-if(!user){
+if(
+!user ||
+user.status === "banned"
+){
 
 return res.status(404).json({
 success:false,
@@ -1366,7 +1417,6 @@ message:error.message
 
 }
 );
-
 /* =========================
 BAN USER
 ========================= */
@@ -1379,12 +1429,32 @@ async (req,res)=>{
 
 try{
 
-await User.findByIdAndUpdate(
-req.params.id,
-{
-status:"banned"
-}
+const user =
+await User.findById(
+req.params.id
 );
+
+if(!user){
+
+return res.status(404).json({
+success:false,
+message:"User not found"
+});
+
+}
+
+if(user.role === "admin"){
+
+return res.status(400).json({
+success:false,
+message:"Cannot ban admin"
+});
+
+}
+
+user.status = "banned";
+
+await user.save();
 
 res.json({
 success:true,
@@ -1400,8 +1470,7 @@ message:error.message
 
 }
 
-}
-);
+});
 
 /* =========================
 UNBAN USER
@@ -1436,9 +1505,7 @@ message:error.message
 
 }
 
-}
-);
-
+});
 /* =========================
 VERIFY USER
 ========================= */
@@ -1476,6 +1543,84 @@ message:error.message
 );
 
 /* =========================
+DELETE USER
+========================= */
+
+app.delete(
+"/api/admin/users/:id",
+protect,
+adminOnly,
+async (req,res)=>{
+
+try{
+
+const user =
+await User.findById(
+req.params.id
+);
+
+if(!user){
+
+return res.status(404).json({
+success:false,
+message:"User not found"
+});
+
+}
+
+if(user.role === "admin"){
+
+return res.status(400).json({
+success:false,
+message:"Cannot delete admin"
+});
+
+}
+
+await Favorite.deleteMany({
+userId:user._id
+});
+
+await Favorite.deleteMany({
+catId:{
+$in:(await Cat.find({
+ownerId:user._id
+})).map(cat=>cat._id)
+}
+});
+
+await Report.deleteMany({
+ownerId:user._id
+});
+
+await Report.deleteMany({
+reporterId:user._id
+});
+
+await Report.deleteMany({
+ownerId:user._id
+});
+
+await User.findByIdAndDelete(
+user._id
+);
+
+res.json({
+success:true,
+message:"User deleted"
+});
+
+}catch(error){
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+});
+/* =========================
 DELETE ANY CAT
 ========================= */
 
@@ -1486,6 +1631,10 @@ adminOnly,
 async (req,res)=>{
 
 try{
+
+await Favorite.deleteMany({
+catId:req.params.id
+});
 
 await Cat.findByIdAndDelete(
 req.params.id
@@ -1505,8 +1654,7 @@ message:error.message
 
 }
 
-}
-);
+});
 
 /* =========================
 ADMIN DASHBOARD
