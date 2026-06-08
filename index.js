@@ -1046,117 +1046,6 @@ message:error.message
 });
 
 /* =========================
-GET SINGLE REPORT
-========================= */
-
-app.get(
-"/api/admin/reports/:id",
-protect,
-adminOnly,
-async (req,res)=>{
-
-try{
-
-const report = await Report.findById(
-req.params.id
-)
-.populate(
-"reporterId",
-"name username email"
-);
-
-if(!report){
-
-return res.status(404).json({
-success:false,
-message:"Report not found"
-});
-
-}
-
-res.json({
-success:true,
-report
-});
-
-}catch(error){
-
-res.status(500).json({
-success:false,
-message:error.message
-});
-
-}
-
-});
-
-/* =========================
-MARK REPORT SOLVED
-========================= */
-
-app.put(
-"/api/admin/reports/:id/solve",
-protect,
-adminOnly,
-async (req,res)=>{
-
-try{
-
-await Report.findByIdAndUpdate(
-req.params.id,
-{
-status:"solved"
-}
-);
-
-res.json({
-success:true,
-message:"Report solved"
-});
-
-}catch(error){
-
-res.status(500).json({
-success:false,
-message:error.message
-});
-
-}
-
-});
-
-/* =========================
-DELETE REPORT
-========================= */
-
-app.delete(
-"/api/admin/reports/:id",
-protect,
-adminOnly,
-async (req,res)=>{
-
-try{
-
-await Report.findByIdAndDelete(
-req.params.id
-);
-
-res.json({
-success:true,
-message:"Report deleted"
-});
-
-}catch(error){
-
-res.status(500).json({
-success:false,
-message:error.message
-});
-
-}
-
-});
-/* =========================
 PUBLIC USER PROFILE
 ========================= */
 
@@ -1344,6 +1233,119 @@ message:"Admin only"
 next();
 
 };
+
+
+/* =========================
+GET SINGLE REPORT
+========================= */
+
+app.get(
+"/api/admin/reports/:id",
+protect,
+adminOnly,
+async (req,res)=>{
+
+try{
+
+const report = await Report.findById(
+req.params.id
+)
+.populate(
+"reporterId",
+"name username email"
+);
+
+if(!report){
+
+return res.status(404).json({
+success:false,
+message:"Report not found"
+});
+
+}
+
+res.json({
+success:true,
+report
+});
+
+}catch(error){
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+});
+
+/* =========================
+MARK REPORT SOLVED
+========================= */
+
+app.put(
+"/api/admin/reports/:id/solve",
+protect,
+adminOnly,
+async (req,res)=>{
+
+try{
+
+await Report.findByIdAndUpdate(
+req.params.id,
+{
+status:"solved"
+}
+);
+
+res.json({
+success:true,
+message:"Report solved"
+});
+
+}catch(error){
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+});
+
+/* =========================
+DELETE REPORT
+========================= */
+
+app.delete(
+"/api/admin/reports/:id",
+protect,
+adminOnly,
+async (req,res)=>{
+
+try{
+
+await Report.findByIdAndDelete(
+req.params.id
+);
+
+res.json({
+success:true,
+message:"Report deleted"
+});
+
+}catch(error){
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+});
 
 /* =========================
 FAVORITE SCHEMA
