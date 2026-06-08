@@ -9,6 +9,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 const otpGenerator = require("otp-generator");
+const { OAuth2Client } = require("google-auth-library");
 
 
 const app = express();
@@ -123,10 +124,10 @@ const userSchema = new mongoose.Schema(
       unique: true,
     },
 
-    password: {
-      type: String,
-      required: true,
-    },
+    password:{
+type:String,
+default:""
+},
 
     avatar: {
       type: String,
@@ -221,6 +222,10 @@ const generateToken = (id) => {
   );
 };
 
+
+const googleClient = new OAuth2Client(
+"779666264780-he0v5soag8rv7c12o7ifqn99gi1vj4tk.apps.googleusercontent.com"
+);
 /* =========================
    AUTH MIDDLEWARE
 ========================= */
@@ -644,6 +649,92 @@ message:error.message
 
 });
 
+/* =========================
+GOOGLE LOGIN
+========================= */
+
+app.post("/api/auth/google", async (req,res)=>{
+
+try{
+
+const { credential } = req.body;
+
+const ticket =
+await googleClient.verifyIdToken({
+
+idToken:credential,
+
+audience:
+"779666264780-he0v5soag8rv7c12o7ifqn99gi1vj4tk.apps.googleusercontent.com"
+
+});
+
+const payload =
+ticket.getPayload();
+
+const email =
+payload.email;
+
+let user =
+await User.findOne({ email });
+
+if(!user){
+
+const username =
+email.split("@")[0] +
+Math.floor(
+Math.random()*1000
+);
+
+user =
+await User.create({
+
+name:payload.name,
+
+email,
+
+username,
+
+avatar:payload.picture,
+
+verified:true
+
+});
+
+}
+
+res.json({
+
+success:true,
+
+token:generateToken(
+user._id
+),
+
+user:{
+id:user._id,
+name:user.name,
+email:user.email,
+role:user.role
+}
+
+});
+
+}catch(error){
+
+console.log(error);
+
+res.status(500).json({
+
+success:false,
+
+message:"Google Login Failed"
+
+});
+
+}
+
+});
 /* =========================
 LOGIN
 ========================= */
