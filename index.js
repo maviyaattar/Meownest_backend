@@ -7,6 +7,9 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const nodemailer = require("nodemailer");
+const otpGenerator = require("otp-generator");
+
 
 const app = express();
 
@@ -18,6 +21,15 @@ mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected"))
   .catch((err) => console.log("❌ MongoDB Error:", err.message));
+
+const transporter = nodemailer.createTransport({
+service:"gmail",
+auth:{
+user:process.env.EMAIL_USER,
+pass:process.env.EMAIL_PASS
+}
+});
+
 
 /* =========================
 CLOUDINARY CONFIG
@@ -136,6 +148,32 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+const otpSchema = new mongoose.Schema({
+
+email:{
+type:String,
+required:true
+},
+
+otp:{
+type:String,
+required:true
+},
+
+createdAt:{
+type:Date,
+default:Date.now,
+expires:300
+}
+
+});
+
+const Otp = mongoose.model(
+"Otp",
+otpSchema
+);
+
 
 const User = mongoose.model("User", userSchema);
 
@@ -278,63 +316,301 @@ app.get("/", (req, res) => {
 });
 
 /* =========================
+SEND OTP
+========================= */
+
+app.post("/api/auth/send-otp", async (req,res)=>{
+
+try{
+
+const { email } = req.body;
+
+if(!email){
+
+return res.status(400).json({
+success:false,
+message:"Email is required"
+});
+
+}
+
+const userExists =
+await User.findOne({ email });
+
+if(userExists){
+
+return res.status(400).json({
+success:false,
+message:"Email already registered"
+});
+
+}
+
+const otp =
+otpGenerator.generate(
+6,
+{
+upperCaseAlphabets:false,
+lowerCaseAlphabets:false,
+specialChars:false
+}
+);
+
+await Otp.deleteMany({ email });
+
+await Otp.create({
+email,
+otp
+});
+
+await transporter.sendMail({
+
+from:process.env.EMAIL_USER,
+
+to:email,
+
+subject:"🐱 MeowNest Email Verification",
+
+html:`
+
+<div style="
+max-width:600px;
+margin:auto;
+font-family:Arial,sans-serif;
+background:#f8fafc;
+padding:30px;
+">
+
+<div style="
+background:white;
+border-radius:20px;
+overflow:hidden;
+box-shadow:0 10px 30px rgba(0,0,0,.08);
+">
+
+<div style="
+background:linear-gradient(135deg,#2563eb,#1d4ed8);
+padding:30px;
+text-align:center;
+color:white;
+">
+
+<h1 style="margin:0;">
+🐱 MeowNest
+</h1>
+
+<p style="
+margin-top:10px;
+opacity:.9;
+">
+Find Loving Homes For Cats
+</p>
+
+</div>
+
+<div style="padding:35px;">
+
+<h2 style="
+margin-top:0;
+color:#111827;
+">
+Verify Your Email Address
+</h2>
+
+<p style="
+color:#64748b;
+line-height:1.7;
+">
+Welcome to MeowNest!
+
+Use the verification code below to complete your registration and secure your account.
+</p>
+
+<div style="
+background:#eff6ff;
+border:2px dashed #2563eb;
+border-radius:18px;
+padding:25px;
+margin:30px 0;
+text-align:center;
+">
+
+<p style="
+margin:0;
+font-size:14px;
+color:#64748b;
+">
+Your Verification Code
+</p>
+
+<h1 style="
+margin:10px 0 0;
+font-size:42px;
+letter-spacing:8px;
+color:#2563eb;
+">
+${otp}
+</h1>
+
+</div>
+
+<p style="
+color:#64748b;
+line-height:1.7;
+">
+This OTP will expire in
+<strong>5 minutes</strong>.
+
+Please do not share this code with anyone.
+</p>
+
+<hr style="
+border:none;
+border-top:1px solid #e5e7eb;
+margin:30px 0;
+">
+
+<p style="
+font-size:13px;
+color:#94a3b8;
+text-align:center;
+">
+If you did not request this verification,
+you can safely ignore this email.
+</p>
+
+</div>
+
+</div>
+
+</div>
+
+`
+
+});
+
+res.json({
+success:true,
+message:"OTP sent successfully"
+});
+
+}catch(error){
+
+console.log(error);
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+});
+
+/* =========================
    REGISTER
 ========================= */
 
-app.post("/api/auth/register", async (req, res) => {
-  try {
-    const {
-      name,
-      username,
-      email,
-      password,
-    } = req.body;
+app.post("/api/auth/register", async (req,res)=>{
 
-    const emailExists = await User.findOne({ email });
+try{
 
-    if (emailExists) {
-      return res.status(400).json({
-        success: false,
-        message: "Email already exists",
-      });
-    }
+const {
+name,
+username,
+email,
+password,
+otp
+} = req.body;
 
-    const usernameExists = await User.findOne({ username });
+const savedOtp =
+await Otp.findOne({ email });
 
-    if (usernameExists) {
-      return res.status(400).json({
-        success: false,
-        message: "Username already exists",
-      });
-    }
+if(!savedOtp){
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const user = await User.create({
-      name,
-      username,
-      email,
-      password: hashedPassword,
-    });
-
-    res.status(201).json({
-      success: true,
-      token: generateToken(user._id),
-      user: {
-        id: user._id,
-        name: user.name,
-        username: user.username,
-        email: user.email,
-      },
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
+return res.status(400).json({
+success:false,
+message:"OTP expired"
 });
 
+}
+
+if(savedOtp.otp !== otp){
+
+return res.status(400).json({
+success:false,
+message:"Invalid OTP"
+});
+
+}
+
+await Otp.deleteMany({ email });
+
+const emailExists =
+await User.findOne({ email });
+
+if(emailExists){
+
+return res.status(400).json({
+success:false,
+message:"Email already exists"
+});
+
+}
+
+const usernameExists =
+await User.findOne({ username });
+
+if(usernameExists){
+
+return res.status(400).json({
+success:false,
+message:"Username already exists"
+});
+
+}
+
+const hashedPassword =
+await bcrypt.hash(password,10);
+
+const user =
+await User.create({
+
+name,
+username,
+email,
+password:hashedPassword,
+verified:true
+
+});
+
+res.status(201).json({
+
+success:true,
+
+token:generateToken(
+user._id
+),
+
+user:{
+id:user._id,
+name:user.name,
+username:user.username,
+email:user.email
+}
+
+});
+
+}catch(error){
+
+res.status(500).json({
+success:false,
+message:error.message
+});
+
+}
+
+});
 
 /* =========================
 LOGIN
