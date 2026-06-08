@@ -425,8 +425,8 @@ success:true,
 user:req.user
 });
 
-});
-
+}
+);
 /* =========================
 CAT SCHEMA
 ========================= */
@@ -1577,9 +1577,13 @@ message:"Cannot delete admin"
 
 }
 
+/* Remove favorites created by user */
+
 await Favorite.deleteMany({
 userId:user._id
 });
+
+/* Remove favorites on user's cats */
 
 await Favorite.deleteMany({
 catId:{
@@ -1589,6 +1593,8 @@ ownerId:user._id
 }
 });
 
+/* Remove reports */
+
 await Report.deleteMany({
 ownerId:user._id
 });
@@ -1597,9 +1603,13 @@ await Report.deleteMany({
 reporterId:user._id
 });
 
-await Report.deleteMany({
+/* Remove user's cats */
+
+await Cat.deleteMany({
 ownerId:user._id
 });
+
+/* Remove user */
 
 await User.findByIdAndDelete(
 user._id
@@ -1620,6 +1630,8 @@ message:error.message
 }
 
 });
+
+
 /* =========================
 DELETE ANY CAT
 ========================= */
@@ -1636,9 +1648,18 @@ await Favorite.deleteMany({
 catId:req.params.id
 });
 
+const cat =
 await Cat.findByIdAndDelete(
 req.params.id
 );
+
+if(cat){
+
+await Report.deleteMany({
+targetId:cat._id.toString()
+});
+
+}
 
 res.json({
 success:true,
@@ -1669,31 +1690,47 @@ async (req,res)=>{
 try{
 
 const totalUsers =
-await User.countDocuments();
+await User.countDocuments({
+role:"user"
+});
 
 const totalCats =
 await Cat.countDocuments();
-
-const totalReports =
-await Report.countDocuments();
-
-const adoptedCats =
-await Cat.countDocuments({
-status:"adopted"
-});
 
 const availableCats =
 await Cat.countDocuments({
 status:"available"
 });
 
+const adoptedCats =
+await Cat.countDocuments({
+status:"adopted"
+});
+
+const totalReports =
+await Report.countDocuments();
+
+const bannedUsers =
+await User.countDocuments({
+status:"banned"
+});
+
 res.json({
+
 success:true,
+
 totalUsers,
+
 totalCats,
+
 availableCats,
+
 adoptedCats,
-totalReports
+
+totalReports,
+
+bannedUsers
+
 });
 
 }catch(error){
@@ -1707,7 +1744,6 @@ message:error.message
 
 }
 );
-
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
